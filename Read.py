@@ -47,7 +47,9 @@ while continue_reading:
         
         # Konvertiere die UID in eine Dezimalzahl unter Verwendung der umgekehrten Reihenfolge
         decimal_id = convert_uid_to_decimal(uid)
-        print("Converted ID: %s" % decimal_id)
+        # Formatiere die Zahl auf 10 Ziffern mit führenden Nullen
+        formatted_id = str(decimal_id).zfill(10)
+        print("Converted ID: %s" % formatted_id)
     
         # This is the default key for authentication
         key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
