@@ -22,8 +22,8 @@ print("Welcome to the MFRC522 data read example")
 print("Press Ctrl-C to stop.")
 
 def convert_uid_to_decimal(uid):
-    # Kombinieren Sie die vier Bytes in eine 32-Bit-Zahl
-    decimal_id = (uid[0] << 24) + (uid[1] << 16) + (uid[2] << 8) + uid[3]
+    # Reverse the byte order for Little-Endian interpretation
+    decimal_id = (uid[3] << 24) + (uid[2] << 16) + (uid[1] << 8) + uid[0]
     return decimal_id
 
 # This loop keeps checking for chips. If one is near it will get the UID and authenticate
@@ -45,7 +45,7 @@ while continue_reading:
         # Print UID
         print("Card read UID: %s,%s,%s,%s" % (uid[0], uid[1], uid[2], uid[3]))
         
-        # Konvertiere die UID in eine Dezimalzahl
+        # Konvertiere die UID in eine Dezimalzahl unter Verwendung der umgekehrten Reihenfolge
         decimal_id = convert_uid_to_decimal(uid)
         print("Converted ID: %s" % decimal_id)
     
