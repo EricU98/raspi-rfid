@@ -1,74 +1,50 @@
 import RPi.GPIO as GPIO
-from MFRC522 import MFRC522
-import signal
-import pyautogui  # Neu hinzugefügt
-import time  # Neu hinzugefügt, um sicherzustellen, dass genug Zeit zwischen den Scans ist
+import spidev
+import time
+import pyautogui
 
-continue_reading = True
+# SPI-Initialisierung
+spi = spidev.SpiDev()
+spi.open(0, 0)  # Öffne SPI-Port 0, Device (CS) 0
+spi.max_speed_hz = 1000000  # Setze die Geschwindigkeit
 
-# Capture SIGINT for cleanup when the script is aborted
-def end_read(signal, frame):
-    global continue_reading
-    print("Ctrl+C captured, ending read.")
-    continue_reading = False
-    GPIO.cleanup()
+# GPIO-Initialisierung
+RST_PIN = 25
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(RST_PIN, GPIO.OUT)
+GPIO.output(RST_PIN, 1)
 
-# Hook the SIGINT
-signal.signal(signal.SIGINT, end_read)
+# Funktion zum Schreiben auf den MFRC522
+def spi_write(address, value):
+    spi.xfer([address << 1, value])
 
-# Create an object of the class MFRC522
-MIFAREReader = MFRC522()
+# Funktion zum Lesen vom MFRC522
+def spi_read(address):
+    result = spi.xfer([address << 1 | 0x80, 0])
+    return result[1]
 
-# Welcome message
-print("Welcome to the MFRC522 data read example")
-print("Press Ctrl-C to stop.")
+# Reset des MFRC522
+def mfrc522_reset():
+    spi_write(0x01, 0x0F)
 
-def convert_uid_to_decimal(uid):
-    # Reverse the byte order for Little-Endian interpretation
-    decimal_id = (uid[3] << 24) + (uid[2] << 16) + (uid[1] << 8) + uid[0]
-    return decimal_id
+# Funktion zum Lesen der UID
+def read_uid():
+    spi_write(0x0D, 0x07)  # Setze Bit Framing
+    spi_write(0x01, 0x0C)  # Sende Antikollisionsbefehl
+    response = spi.xfer([0x93, 0x20, 0, 0, 0, 0, 0])  # Sende Antikollisionsdaten
+    return response[2:6]  # Extrahiere die UID
 
-# This loop keeps checking for chips. If one is near it will get the UID and authenticate
-while continue_reading:
-    
-    # Scan for cards    
-    (status, TagType) = MIFAREReader.MFRC522_Request(MIFAREReader.PICC_REQIDL)
-
-    # If a card is found
-    if status == MIFAREReader.MI_OK:
-        print("Card detected")
-    
-    # Get the UID of the card
-    (status, uid) = MIFAREReader.MFRC522_Anticoll()
-
-    # If we have the UID, continue
-    if status == MIFAREReader.MI_OK:
-
-        # Konvertiere die UID in eine Dezimalzahl unter Verwendung der umgekehrten Reihenfolge
-        decimal_id = convert_uid_to_decimal(uid)
-        # Formatiere die Zahl auf 10 Ziffern mit führenden Nullen
-        formatted_id = str(decimal_id).zfill(10)
-        print("Converted ID: %s" % formatted_id)
-
-        # Tippe die UID in das aktive Eingabefeld der Webapp ein
-        pyautogui.write(formatted_id)
-        pyautogui.press('enter')  # Drückt Enter, um das Formular abzuschließen oder die Eingabe zu bestätigen
-
-        # Sicherstellen, dass genug Zeit zwischen den Scans liegt
+# Main-Loop
+try:
+    while True:
+        uid = read_uid()
+        if uid:
+            decimal_id = (uid[3] << 24) + (uid[2] << 16) + (uid[1] << 8) + uid[0]
+            formatted_id = str(decimal_id).zfill(10)
+            print("UID: ", formatted_id)
+            pyautogui.write(formatted_id)
+            pyautogui.press('enter')
         time.sleep(1)
-    
-        # This is the default key for authentication
-        key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-        
-        # Select the scanned tag
-        MIFAREReader.MFRC522_SelectTag(uid)
-
-        # Authenticate
-        status = MIFAREReader.MFRC522_Auth(MIFAREReader.PICC_AUTHENT1A, 8, key, uid)
-
-        # Check if authenticated
-        if status == MIFAREReader.MI_OK:
-            MIFAREReader.MFRC522_Read(8)
-            MIFAREReader.MFRC522_StopCrypto1()
-        else:
-            print("Authentication error")
+except KeyboardInterrupt:
+    GPIO.cleanup()
+    spi.close()
