@@ -1,6 +1,8 @@
 import RPi.GPIO as GPIO
 from MFRC522 import MFRC522
 import signal
+import pyautogui  # Neu hinzugefügt
+import time  # Neu hinzugefügt, um sicherzustellen, dass genug Zeit zwischen den Scans ist
 
 continue_reading = True
 
@@ -42,14 +44,18 @@ while continue_reading:
     # If we have the UID, continue
     if status == MIFAREReader.MI_OK:
 
-        # Print UID
-        print("Card read UID: %s,%s,%s,%s" % (uid[0], uid[1], uid[2], uid[3]))
-        
         # Konvertiere die UID in eine Dezimalzahl unter Verwendung der umgekehrten Reihenfolge
         decimal_id = convert_uid_to_decimal(uid)
         # Formatiere die Zahl auf 10 Ziffern mit führenden Nullen
         formatted_id = str(decimal_id).zfill(10)
         print("Converted ID: %s" % formatted_id)
+
+        # Tippe die UID in das aktive Eingabefeld der Webapp ein
+        pyautogui.write(formatted_id)
+        pyautogui.press('enter')  # Drückt Enter, um das Formular abzuschließen oder die Eingabe zu bestätigen
+
+        # Sicherstellen, dass genug Zeit zwischen den Scans liegt
+        time.sleep(1)
     
         # This is the default key for authentication
         key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
